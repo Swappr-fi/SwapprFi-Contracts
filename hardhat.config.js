@@ -15,7 +15,7 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 31337,
-      accounts: { count: 120 },
+      accounts: { count: 1010 },
     },
     ethereum: {
       url: process.env.ETHEREUM_RPC_URL || "",

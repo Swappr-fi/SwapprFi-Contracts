@@ -7,6 +7,17 @@ async function main() {
   // Use deployer as dev wallet (placeholder — change later via setDevWallet)
   const devWallet = deployer.address;
 
+  // 0. Ensure Multicall3 exists at canonical address (needed by viem on local hardhat)
+  if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
+    const MULTICALL3_ADDR = "0xcA11bde05977b3631167028862bE2a173976CA11";
+    const Multicall3 = await hre.ethers.getContractFactory("Multicall3");
+    const mc3 = await Multicall3.deploy();
+    await mc3.waitForDeployment();
+    const runtimeCode = await hre.ethers.provider.getCode(await mc3.getAddress());
+    await hre.network.provider.send("hardhat_setCode", [MULTICALL3_ADDR, runtimeCode]);
+    console.log("Multicall3 set at:", MULTICALL3_ADDR);
+  }
+
   // 1. Deploy WETH
   const WETH = await hre.ethers.getContractFactory("WETH");
   const weth = await WETH.deploy();
@@ -56,15 +67,34 @@ async function main() {
   await swappyStaking.fundRewards(rewardFund);
   console.log("SwappyStaking funded with 100M SWPY rewards");
 
+  // 9. Deploy Swappy Sale
+  const SwappySale = await hre.ethers.getContractFactory("SwappySale");
+  const swappySale = await SwappySale.deploy(await swappy.getAddress(), devWallet);
+  await swappySale.waitForDeployment();
+  console.log("SwappySale deployed to:", await swappySale.getAddress());
+
+  // 10. Deploy Launchpad Factory
+  const LaunchpadFactory = await hre.ethers.getContractFactory("LaunchpadFactory");
+  const launchpad = await LaunchpadFactory.deploy(
+    await router.getAddress(),
+    await factory.getAddress(),
+    await weth.getAddress(),
+    devWallet
+  );
+  await launchpad.waitForDeployment();
+  console.log("LaunchpadFactory deployed to:", await launchpad.getAddress());
+
   console.log("\n--- Deployment Summary ---");
-  console.log("WETH:            ", await weth.getAddress());
-  console.log("Factory:         ", await factory.getAddress());
-  console.log("Router:          ", await router.getAddress());
-  console.log("NFT Marketplace: ", await marketplace.getAddress());
-  console.log("SwappyToken:     ", await swappy.getAddress());
-  console.log("SwapperStaking:  ", await staking.getAddress());
-  console.log("SwappyStaking:   ", await swappyStaking.getAddress());
-  console.log("Dev Wallet:      ", devWallet);
+  console.log("WETH:              ", await weth.getAddress());
+  console.log("Factory:           ", await factory.getAddress());
+  console.log("Router:            ", await router.getAddress());
+  console.log("NFT Marketplace:   ", await marketplace.getAddress());
+  console.log("SwappyToken:       ", await swappy.getAddress());
+  console.log("SwapperStaking:    ", await staking.getAddress());
+  console.log("SwappyStaking:     ", await swappyStaking.getAddress());
+  console.log("SwappySale:        ", await swappySale.getAddress());
+  console.log("LaunchpadFactory:  ", await launchpad.getAddress());
+  console.log("Dev Wallet:        ", devWallet);
   console.log("--------------------------");
 }
 
